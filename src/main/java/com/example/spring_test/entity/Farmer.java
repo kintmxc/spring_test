@@ -7,17 +7,20 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 @Data
-@TableName("admin_user")
-public class Admin {
+@TableName("farmer")
+public class Farmer {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
+    private String loginName;
     private String password;
-    private String realName;
-    private String phone;
-    private String roleCode;
-    private Integer status;
-    private LocalDateTime lastLoginTime;
+    private String farmerName;
+    private String contactPhone;
+    private String originPlace;
+    private String idCardNo;
+    private String licenseNo;
+    private Integer authStatus;
+    private Integer accountStatus;
+    private String remark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

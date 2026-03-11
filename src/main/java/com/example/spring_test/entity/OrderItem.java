@@ -3,21 +3,20 @@ package com.example.spring_test.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Data;
 
 @Data
-@TableName("admin_user")
-public class Admin {
+@TableName("order_item")
+public class OrderItem {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String realName;
-    private String phone;
-    private String roleCode;
-    private Integer status;
-    private LocalDateTime lastLoginTime;
+    private Long orderId;
+    private Long productId;
+    private String productName;
+    private BigDecimal productPrice;
+    private Integer quantity;
+    private BigDecimal subtotalAmount;
     private LocalDateTime createTime;
-    private LocalDateTime updateTime;
 }
