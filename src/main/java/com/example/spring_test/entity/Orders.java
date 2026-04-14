@@ -27,6 +27,7 @@ public class Orders {
     private LocalDateTime shipTime;
     private LocalDateTime finishTime;
     private LocalDateTime cancelTime;
+    private Integer isDeleted;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

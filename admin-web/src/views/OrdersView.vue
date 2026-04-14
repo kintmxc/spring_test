@@ -54,6 +54,7 @@
           <el-button v-if="scope.row.orderStatus === 1" link type="success" @click="openShip(scope.row)">发货</el-button>
           <el-button v-if="scope.row.orderStatus === 2" link type="warning" :loading="rowActionId === scope.row.id && rowActionType === 'complete'" @click="complete(scope.row)">完成</el-button>
           <el-button v-if="scope.row.orderStatus < 2" link type="danger" :loading="rowActionId === scope.row.id && rowActionType === 'cancel'" @click="cancel(scope.row)">取消</el-button>
+          <el-button v-if="scope.row.orderStatus === 4" link type="danger" :loading="rowActionId === scope.row.id && rowActionType === 'delete'" @click="deleteOrder(scope.row)">删除</el-button>
         </template>
       </el-table-column>
       <template #empty>
@@ -112,7 +113,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { orderPageApi, orderDetailApi, updateOrderStatusApi, shipOrderApi, cancelOrderApi } from '../api/orders'
+import { orderPageApi, orderDetailApi, updateOrderStatusApi, shipOrderApi, cancelOrderApi, deleteOrderApi } from '../api/orders'
 import { authState } from '../stores/auth'
 
 const query = reactive({ pageNum: 1, pageSize: 10, orderNo: '', orderStatus: '' })
@@ -245,6 +246,32 @@ async function cancel(row) {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '取消订单失败')
+    }
+  } finally {
+    rowActionId.value = null
+    rowActionType.value = ''
+  }
+}
+
+async function deleteOrder(row) {
+  try {
+    await ElMessageBox.confirm('确认删除该订单吗？删除后无法恢复！', '删除提示', { type: 'warning' })
+    rowActionId.value = row.id
+    rowActionType.value = 'delete'
+    await deleteOrderApi(row.id)
+    const index = records.value.findIndex((item) => item.id === row.id)
+    if (index >= 0) {
+      records.value.splice(index, 1)
+      total.value = Math.max(total.value - 1, 0)
+    }
+    if (detail.value?.id === row.id) {
+      detailVisible.value = false
+      detail.value = null
+    }
+    ElMessage.success('订单已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除订单失败')
     }
   } finally {
     rowActionId.value = null

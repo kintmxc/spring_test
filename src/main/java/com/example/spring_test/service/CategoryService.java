@@ -15,4 +15,9 @@ public interface CategoryService {
     CategoryVO update(Long id, CategorySaveDTO categorySaveDTO);
 
     void delete(Long id);
+
+    // --- For internal decoupling ---
+    com.example.spring_test.entity.ProductCategory getById(Long id);
+    java.util.Map<Long, String> getCategoryNamesByIds(java.util.Set<Long> ids);
+    java.util.List<Long> getCategoryIdsByKeyword(String keyword);
 }

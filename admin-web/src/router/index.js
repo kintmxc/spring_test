@@ -17,12 +17,12 @@ const routes = [
     component: AdminLayout,
     children: [
       { path: '', redirect: '/dashboard' },
-      { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
+      { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
       { path: '/categories', name: 'categories', component: CategoriesView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
       { path: '/farmers', name: 'farmers', component: FarmersView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
-      { path: '/products', name: 'products', component: ProductsView, meta: { requiresAuth: true } },
-      { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
-      { path: '/traces', name: 'traces', component: TracesView, meta: { requiresAuth: true } },
+      { path: '/products', name: 'products', component: ProductsView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
+      { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
+      { path: '/traces', name: 'traces', component: TracesView, meta: { requiresAuth: true, roles: ['ADMIN'] } },
     ],
   },
 ]
@@ -55,7 +55,8 @@ router.beforeEach(async (to) => {
 
   const roles = to.meta.roles || []
   if (roles.length && !roles.includes(authState.user?.roleCode)) {
-    return '/dashboard'
+    clearAuth()
+    return '/login'
   }
 
   return true

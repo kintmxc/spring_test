@@ -1,7 +1,6 @@
 package com.example.spring_test.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.spring_test.common.PageResult;
 import com.example.spring_test.dto.TraceQueryDTO;
 import com.example.spring_test.dto.TraceSaveDTO;
@@ -16,6 +15,7 @@ import com.example.spring_test.mapper.ProductMapper;
 import com.example.spring_test.mapper.ProductTraceMapper;
 import com.example.spring_test.security.CurrentUserUtil;
 import com.example.spring_test.service.TraceService;
+import com.example.spring_test.util.UrlUtils;
 import com.example.spring_test.vo.TraceListVO;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -152,7 +152,7 @@ public class TraceServiceImpl implements TraceService {
             vo.setFarmerName(farmerNameMap.getOrDefault(product.getFarmerId(), "-"));
             vo.setCategoryName(categoryNameMap.getOrDefault(product.getCategoryId(), "-"));
             vo.setOriginPlace(product.getOriginPlace());
-            vo.setCoverImage(product.getCoverImage());
+            vo.setCoverImage(UrlUtils.toFullUrl(product.getCoverImage()));
             vo.setStock(product.getStock());
             vo.setSaleStatus(product.getSaleStatus());
             vo.setProductionDate(trace == null ? null : trace.getProductionDate());
@@ -194,7 +194,7 @@ public class TraceServiceImpl implements TraceService {
         vo.setFarmerName(farmerName);
         vo.setCategoryName(categoryName);
         vo.setOriginPlace(product.getOriginPlace());
-        vo.setCoverImage(product.getCoverImage());
+        vo.setCoverImage(UrlUtils.toFullUrl(product.getCoverImage()));
         vo.setStock(product.getStock());
         vo.setSaleStatus(product.getSaleStatus());
         vo.setProductionDate(trace == null ? null : trace.getProductionDate());

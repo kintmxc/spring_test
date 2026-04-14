@@ -13,7 +13,7 @@
           <div style="margin-bottom: 28px">
             <div class="tag-soft">欢迎回来</div>
             <h2 style="margin: 16px 0 6px; font-size: 32px">登录管理端</h2>
-            <p class="muted">管理员和已审核农户都可以从这里进入后台。</p>
+            <p class="muted">仅管理员账号可登录后台，农户和消费者请使用小程序端。</p>
           </div>
           <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
             <el-form-item label="用户名" prop="username">

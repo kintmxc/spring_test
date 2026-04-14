@@ -5,6 +5,7 @@ import com.example.spring_test.service.DashboardService;
 import com.example.spring_test.vo.DashboardOverviewVO;
 import com.example.spring_test.vo.LatestOrderVO;
 import java.util.List;
+import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,11 @@ public class DashboardController {
     @GetMapping("/overview")
     public Result<DashboardOverviewVO> overview() {
         return Result.success(dashboardService.overview());
+    }
+
+    @GetMapping("/sales-stats")
+    public Result<Map<String, Object>> salesStats(@RequestParam(defaultValue = "month") String period) {
+        return Result.success(dashboardService.salesStats(period));
     }
 
     @GetMapping("/latest-orders")

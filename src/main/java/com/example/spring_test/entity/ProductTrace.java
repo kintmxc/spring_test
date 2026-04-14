@@ -19,4 +19,5 @@ public class ProductTrace {
     private Integer traceStatus;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Integer isDeleted;
 }

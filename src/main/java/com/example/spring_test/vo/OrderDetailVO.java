@@ -1,6 +1,5 @@
 package com.example.spring_test.vo;
 
-import com.example.spring_test.entity.OrderItem;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,5 +31,5 @@ public class OrderDetailVO {
     private String trackingNo;
     private Integer logisticsStatus;
     private String shipRemark;
-    private List<OrderItem> items;
+    private List<OrderItemVO> items;
 }

@@ -1,0 +1,12 @@
+{
+  "name": "小程序测试商品",
+  "categoryId": 2,
+  "price": 88.88,
+  "unit": "斤",
+  "stock": 50,
+  "origin": "成都双流",
+  "description": "来自小程序的测试商品",
+  "productionTime": "2026-04-01",
+  "inspection": "已通过质量检测",
+  "images": ["https://11xq9976173yt.vicp.fun/uploads/test1.jpg"]
+}

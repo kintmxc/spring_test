@@ -23,7 +23,7 @@
         <div>
           <div class="tag-soft">{{ roleText }}</div>
           <h3 style="margin: 10px 0 4px">{{ authState.user?.username || '未登录' }}</h3>
-          <div class="muted">{{ authState.user?.roleCode === 'ADMIN' ? '管理员拥有全局管理权限' : '农户仅能操作自己的业务数据' }}</div>
+          <div class="muted">管理员拥有全局管理权限</div>
         </div>
         <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
       </header>
@@ -55,7 +55,7 @@ const menus = computed(() => {
   return base
 })
 
-const roleText = computed(() => (authState.user?.roleCode === 'ADMIN' ? '管理员' : '农户'))
+const roleText = computed(() => '管理员')
 
 async function handleLogout() {
   await logout()

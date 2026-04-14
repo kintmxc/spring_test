@@ -5,12 +5,16 @@ import com.example.spring_test.common.Result;
 import com.example.spring_test.dto.FarmerAuditDTO;
 import com.example.spring_test.dto.FarmerQueryDTO;
 import com.example.spring_test.dto.FarmerSaveDTO;
+import com.example.spring_test.dto.ProductQueryDTO;
 import com.example.spring_test.service.FarmerService;
+import com.example.spring_test.service.ProductService;
 import com.example.spring_test.vo.FarmerDetailVO;
 import com.example.spring_test.vo.FarmerListVO;
 import com.example.spring_test.vo.OptionVO;
+import com.example.spring_test.vo.ProductListVO;
 import com.example.spring_test.entity.Farmer;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/farmers")
 public class FarmerController {
     private final FarmerService farmerService;
+    private final ProductService productService;
 
-    public FarmerController(FarmerService farmerService) {
+    public FarmerController(FarmerService farmerService, ProductService productService) {
         this.farmerService = farmerService;
+        this.productService = productService;
     }
 
     @GetMapping
@@ -49,6 +55,18 @@ public class FarmerController {
         return Result.success(farmerService.detail(id));
     }
 
+    @GetMapping("/{id}/products")
+    public Result<PageResult<ProductListVO>> products(@PathVariable Long id, ProductQueryDTO productQueryDTO) {
+        productQueryDTO.setFarmerId(id);
+        if (productQueryDTO.getPage() != null && productQueryDTO.getPage() > 0) {
+            productQueryDTO.setPageNum(productQueryDTO.getPage());
+        }
+        if (productQueryDTO.getKeyword() != null && !productQueryDTO.getKeyword().isBlank()) {
+            productQueryDTO.setProductName(productQueryDTO.getKeyword());
+        }
+        return Result.success(productService.page(productQueryDTO));
+    }
+
     @PostMapping
     public Result<FarmerDetailVO> save(@RequestBody FarmerSaveDTO farmerSaveDTO) {
         return Result.success("新增农户成功", farmerService.save(farmerSaveDTO));
@@ -67,5 +85,11 @@ public class FarmerController {
     @PutMapping("/{id}/status")
     public Result<FarmerDetailVO> updateStatus(@PathVariable Long id, @RequestParam Integer accountStatus) {
         return Result.success("更新农户状态成功", farmerService.updateStatus(id, accountStatus));
+    }
+
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@PathVariable Long id) {
+        farmerService.delete(id);
+        return Result.success("删除农户成功", null);
     }
 }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.spring_test.mapper.UserBehaviorMapper">
+    <select id="getRecentBehaviorsByUserId" resultType="com.example.spring_test.entity.UserBehavior">
+        SELECT * FROM user_behavior
+        WHERE user_id = #{userId}
+        ORDER BY behavior_time DESC
+        LIMIT #{limit}
+    </select>
+    
+    <select id="getViewedProductIdsByUserId" resultType="java.lang.Long">
+        SELECT DISTINCT product_id FROM user_behavior
+        WHERE user_id = #{userId} AND behavior_type = 1
+        ORDER BY behavior_time DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -41,3 +41,54 @@ admin-web/.vite/
 logs/
 uploads/
 *.log
+
+# ===== 你项目中的临时测试文件 =====
+test-*.js
+test-*.ps1
+test-api/
+tmp-*.json
+tmp-*.txt
+cookie*.txt
+*.sql                 # 如果你有正式的 schema.sql/data.sql，请单独排除临时脚本
+!src/main/resources/db/schema.sql
+!src/main/resources/db/data.sql
+
+# ===== 乱码的中文文件名（来自 Windows 编码问题） =====
+鍓嶇*/
+灏忕▼搴?*
+寮€棰樻姤鍛?txt
+瑙ｈ€︿緷璧?*
+璇勪环?*
+椤圭洰鍚姩.txt
+API鏂囨。*
+SECURITY_CONFIG.md
+
+# ===== 数据库临时修复脚本 =====
+src/main/resources/db/alter_schema.sql
+src/main/resources/db/check_schema.sql
+src/main/resources/db/complete_fix.sql
+src/main/resources/db/final_fix.sql
+src/main/resources/db/fix_*.sql
+src/main/resources/db/simple_fix.sql
+src/main/resources/db/step_by_step_fix.sql
+src/main/resources/db/schema_optimized.sql
+
+# ===== 部署临时目录 =====
+deploy/
+
+# ===== 编辑器/系统临时文件 =====
+.trae/
+*.bak
+*.swp
+*.tmp
+.DS_Store
+Thumbs.db
+
+# ===== 本地环境配置（含密钥） =====
+application-local.yml
+application-dev.yml
+admin-web/.env.development
+admin-web/.env.production
+
+# 忽略错误放置的 package-lock.json
+**/src/main/java/**/package-lock.json

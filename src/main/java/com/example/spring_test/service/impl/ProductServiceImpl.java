@@ -10,24 +10,30 @@ import com.example.spring_test.entity.Farmer;
 import com.example.spring_test.entity.OrderItem;
 import com.example.spring_test.entity.Product;
 import com.example.spring_test.entity.ProductCategory;
+import com.example.spring_test.entity.ProductImage;
 import com.example.spring_test.entity.ProductTrace;
 import com.example.spring_test.exception.BusinessException;
 import com.example.spring_test.exception.ForbiddenException;
 import com.example.spring_test.mapper.FarmerMapper;
 import com.example.spring_test.mapper.OrderItemMapper;
 import com.example.spring_test.mapper.ProductCategoryMapper;
+import com.example.spring_test.mapper.ProductImageMapper;
 import com.example.spring_test.mapper.ProductMapper;
 import com.example.spring_test.mapper.ProductTraceMapper;
 import com.example.spring_test.security.CurrentUserUtil;
+import com.example.spring_test.security.SessionUser;
+import com.example.spring_test.security.SessionUserHolder;
 import com.example.spring_test.service.ProductService;
+import com.example.spring_test.util.UrlUtils;
 import com.example.spring_test.vo.ProductDetailVO;
 import com.example.spring_test.vo.ProductListVO;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,29 +44,36 @@ public class ProductServiceImpl implements ProductService {
     private final FarmerMapper farmerMapper;
     private final OrderItemMapper orderItemMapper;
     private final ProductTraceMapper productTraceMapper;
+    private final ProductImageMapper productImageMapper;
 
     public ProductServiceImpl(ProductMapper productMapper,
                               ProductCategoryMapper productCategoryMapper,
                               FarmerMapper farmerMapper,
                               OrderItemMapper orderItemMapper,
-                              ProductTraceMapper productTraceMapper) {
+                              ProductTraceMapper productTraceMapper,
+                              ProductImageMapper productImageMapper) {
         this.productMapper = productMapper;
         this.productCategoryMapper = productCategoryMapper;
         this.farmerMapper = farmerMapper;
         this.orderItemMapper = orderItemMapper;
         this.productTraceMapper = productTraceMapper;
+        this.productImageMapper = productImageMapper;
     }
 
     @Override
     public PageResult<ProductListVO> page(ProductQueryDTO productQueryDTO) {
         Page<Product> page = new Page<>(productQueryDTO.getPageNum(), productQueryDTO.getPageSize());
+        Long farmerId = resolveFarmerId(productQueryDTO.getFarmerId());
         LambdaQueryWrapper<Product> queryWrapper = new LambdaQueryWrapper<Product>()
                 .like(productQueryDTO.getProductName() != null && !productQueryDTO.getProductName().isBlank(), Product::getProductName, productQueryDTO.getProductName())
                 .like(productQueryDTO.getOriginPlace() != null && !productQueryDTO.getOriginPlace().isBlank(), Product::getOriginPlace, productQueryDTO.getOriginPlace())
                 .eq(productQueryDTO.getCategoryId() != null, Product::getCategoryId, productQueryDTO.getCategoryId())
-                .eq(resolveFarmerId(productQueryDTO.getFarmerId()) != null, Product::getFarmerId, resolveFarmerId(productQueryDTO.getFarmerId()))
+                .eq(farmerId != null, Product::getFarmerId, farmerId)
                 .eq(productQueryDTO.getSaleStatus() != null, Product::getSaleStatus, productQueryDTO.getSaleStatus())
                 .orderByDesc(Product::getId);
+        if (shouldLimitToOnShelf(productQueryDTO.getSaleStatus())) {
+            queryWrapper.eq(Product::getSaleStatus, 1);
+        }
         applyStockFilter(queryWrapper, productQueryDTO.getStockStatus());
         if (productQueryDTO.getHasCoverImage() != null) {
             if (productQueryDTO.getHasCoverImage() == 1) {
@@ -69,18 +82,34 @@ public class ProductServiceImpl implements ProductService {
                 queryWrapper.and(wrapper -> wrapper.isNull(Product::getCoverImage).or().eq(Product::getCoverImage, ""));
             }
         }
+        if (productQueryDTO.getKeyword() != null && !productQueryDTO.getKeyword().isBlank()) {
+            String keyword = productQueryDTO.getKeyword().trim();
+            List<Long> matchedFarmerIds = findFarmerIdsByKeyword(keyword);
+            List<Long> matchedCategoryIds = findCategoryIdsByKeyword(keyword);
+            queryWrapper.and(wrapper -> {
+                wrapper.like(Product::getProductName, keyword);
+                if (!matchedFarmerIds.isEmpty()) {
+                    wrapper.or().in(Product::getFarmerId, matchedFarmerIds);
+                }
+                if (!matchedCategoryIds.isEmpty()) {
+                    wrapper.or().in(Product::getCategoryId, matchedCategoryIds);
+                }
+            });
+        }
         Page<Product> result = productMapper.selectPage(page, queryWrapper);
         List<ProductListVO> records = buildProductList(result.getRecords());
         return new PageResult<>(result.getTotal(), result.getCurrent(), result.getSize(), records);
     }
 
     @Override
+    @Cacheable(value = "productDetail", key = "#id", unless = "#result == null")
     public ProductDetailVO detail(Long id) {
-        Product product = getProduct(id);
+        Product product = getReadableProduct(id);
         return buildProductDetail(product);
     }
 
     @Override
+    @CacheEvict(value = "productDetail", key = "#result.id")
     public ProductDetailVO save(ProductSaveDTO productSaveDTO) {
         Long farmerId = resolveWritableFarmerId(productSaveDTO.getFarmerId());
         validateReferences(productSaveDTO.getCategoryId(), farmerId);
@@ -89,10 +118,13 @@ public class ProductServiceImpl implements ProductService {
         fillProduct(product, productSaveDTO);
         product.setSalesCount(0);
         productMapper.insert(product);
+        saveOrUpdateTrace(product.getId(), productSaveDTO);
+        saveOrUpdateImages(product.getId(), productSaveDTO.getImages());
         return buildProductDetail(product);
     }
 
     @Override
+    @CacheEvict(value = "productDetail", key = "#id")
     public ProductDetailVO update(Long id, ProductSaveDTO productSaveDTO) {
         Product product = getProduct(id);
         Long farmerId = resolveWritableFarmerId(productSaveDTO.getFarmerId());
@@ -100,18 +132,67 @@ public class ProductServiceImpl implements ProductService {
         productSaveDTO.setFarmerId(farmerId);
         fillProduct(product, productSaveDTO);
         productMapper.updateById(product);
+        saveOrUpdateTrace(id, productSaveDTO);
+        saveOrUpdateImages(id, productSaveDTO.getImages());
         return buildProductDetail(product);
     }
 
+    private void saveOrUpdateTrace(Long productId, ProductSaveDTO dto) {
+        if (dto.getProductionDate() == null && dto.getInspectDesc() == null) {
+            return;
+        }
+        ProductTrace trace = productTraceMapper.selectOne(new LambdaQueryWrapper<ProductTrace>()
+                .eq(ProductTrace::getProductId, productId)
+                .last("limit 1"));
+        if (trace == null) {
+            trace = new ProductTrace();
+            trace.setProductId(productId);
+            trace.setTraceStatus(1);
+        }
+        if (dto.getProductionDate() != null) {
+            trace.setProductionDate(dto.getProductionDate());
+        }
+        if (dto.getInspectDesc() != null) {
+            trace.setInspectDesc(dto.getInspectDesc());
+        }
+        if (trace.getId() == null) {
+            productTraceMapper.insert(trace);
+        } else {
+            productTraceMapper.updateById(trace);
+        }
+    }
+    
+    private void saveOrUpdateImages(Long productId, List<String> images) {
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+        
+        productImageMapper.delete(new LambdaQueryWrapper<ProductImage>()
+            .eq(ProductImage::getProductId, productId));
+        
+        for (int i = 0; i < images.size(); i++) {
+            String imageUrl = images.get(i);
+            if (imageUrl != null && !imageUrl.isBlank()) {
+                ProductImage productImage = new ProductImage();
+                productImage.setProductId(productId);
+                productImage.setImageUrl(imageUrl);
+                productImage.setSortOrder(i);
+                productImageMapper.insert(productImage);
+            }
+        }
+    }
+
     @Override
+    @CacheEvict(value = "productDetail", key = "#id")
     public ProductDetailVO updateSaleStatus(Long id, Integer saleStatus) {
         Product product = getProduct(id);
         product.setSaleStatus(saleStatus);
         productMapper.updateById(product);
-        return buildProductDetail(product);
+        return buildSimpleProductDetail(product);
     }
 
     @Override
+    @CacheEvict(value = "productDetail", key = "#id")
     public ProductDetailVO updateStock(Long id, ProductStockUpdateDTO productStockUpdateDTO) {
         Product product = getProduct(id);
         if (productStockUpdateDTO.getStock() == null || productStockUpdateDTO.getStock() < 0) {
@@ -119,7 +200,38 @@ public class ProductServiceImpl implements ProductService {
         }
         product.setStock(productStockUpdateDTO.getStock());
         productMapper.updateById(product);
-        return buildProductDetail(product);
+        return buildSimpleProductDetail(product);
+    }
+
+    private ProductDetailVO buildSimpleProductDetail(Product product) {
+        ProductDetailVO vo = new ProductDetailVO();
+        vo.setId(product.getId());
+        vo.setFarmerId(product.getFarmerId());
+        vo.setCategoryId(product.getCategoryId());
+        vo.setProductName(product.getProductName());
+        vo.setPrice(product.getPrice());
+        vo.setStock(product.getStock());
+        vo.setUnitName(product.getUnitName());
+        vo.setOriginPlace(product.getOriginPlace());
+        vo.setCoverImage(UrlUtils.toFullUrl(product.getCoverImage()));
+        
+        List<ProductImage> productImages = productImageMapper.selectList(
+            new LambdaQueryWrapper<ProductImage>()
+                .eq(ProductImage::getProductId, product.getId())
+                .orderByAsc(ProductImage::getSortOrder)
+        );
+        if (productImages != null && !productImages.isEmpty()) {
+            vo.setImages(productImages.stream()
+                .map(img -> UrlUtils.toFullUrl(img.getImageUrl()))
+                .collect(Collectors.toList()));
+        }
+        
+        vo.setDescription(product.getDescription());
+        vo.setSaleStatus(product.getSaleStatus());
+        vo.setSalesCount(product.getSalesCount());
+        vo.setCreateTime(product.getCreateTime());
+        vo.setUpdateTime(product.getUpdateTime());
+        return vo;
     }
 
     private ProductDetailVO buildProductDetail(Product product) {
@@ -137,7 +249,19 @@ public class ProductServiceImpl implements ProductService {
         vo.setStock(product.getStock());
         vo.setUnitName(product.getUnitName());
         vo.setOriginPlace(product.getOriginPlace());
-        vo.setCoverImage(product.getCoverImage());
+        vo.setCoverImage(UrlUtils.toFullUrl(product.getCoverImage()));
+        
+        List<ProductImage> productImages = productImageMapper.selectList(
+            new LambdaQueryWrapper<ProductImage>()
+                .eq(ProductImage::getProductId, product.getId())
+                .orderByAsc(ProductImage::getSortOrder)
+        );
+        if (productImages != null && !productImages.isEmpty()) {
+            vo.setImages(productImages.stream()
+                .map(img -> UrlUtils.toFullUrl(img.getImageUrl()))
+                .collect(Collectors.toList()));
+        }
+        
         vo.setDescription(product.getDescription());
         vo.setSaleStatus(product.getSaleStatus());
         vo.setSalesCount(product.getSalesCount());
@@ -145,6 +269,7 @@ public class ProductServiceImpl implements ProductService {
         vo.setUpdateTime(product.getUpdateTime());
         vo.setCategoryName(category == null ? "-" : category.getCategoryName());
         vo.setFarmerName(farmer == null ? "-" : farmer.getFarmerName());
+        vo.setFarmerDesc(farmer == null ? "-" : farmer.getOriginPlace());
         vo.setTraceMaintained(trace != null);
         if (trace != null) {
             vo.setTraceId(trace.getId());
@@ -161,19 +286,15 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "productDetail", key = "#id")
     public void delete(Long id) {
         Product product = getProduct(id);
-        Long orderItemCount = orderItemMapper.selectCount(new LambdaQueryWrapper<OrderItem>()
-                .eq(OrderItem::getProductId, product.getId()));
-        if (orderItemCount != null && orderItemCount > 0) {
-            throw new BusinessException("商品已有关联订单，不能删除");
+        if (hasOrdersForProduct(product.getId())) {
+            throw new BusinessException("该商品已有订单记录，无法删除");
         }
-        ProductTrace trace = productTraceMapper.selectOne(new LambdaQueryWrapper<ProductTrace>()
-                .eq(ProductTrace::getProductId, product.getId())
-                .last("limit 1"));
-        if (trace != null) {
-            productTraceMapper.deleteById(trace.getId());
-        }
+        
+        productImageMapper.delete(new LambdaQueryWrapper<ProductImage>()
+            .eq(ProductImage::getProductId, product.getId()));
         productMapper.deleteById(product.getId());
     }
 
@@ -186,19 +307,56 @@ public class ProductServiceImpl implements ProductService {
         return product;
     }
 
+    private Product getReadableProduct(Long id) {
+        Product product = productMapper.selectById(id);
+        if (product == null) {
+            throw new BusinessException("商品不存在");
+        }
+        SessionUser currentUser = SessionUserHolder.get();
+        if (currentUser == null || isConsumer(currentUser)) {
+            if (product.getSaleStatus() == null || product.getSaleStatus() != 1) {
+                throw new BusinessException("商品不存在或已下架");
+            }
+            return product;
+        }
+        if (isAdmin(currentUser) || currentUser.getUserId().equals(product.getFarmerId())) {
+            return product;
+        }
+        throw new ForbiddenException("无权访问该商品");
+    }
+
     private Long resolveFarmerId(Long queryFarmerId) {
-        if (CurrentUserUtil.isFarmer()) {
-            return CurrentUserUtil.currentUserId();
+        SessionUser currentUser = SessionUserHolder.get();
+        if (currentUser == null) {
+            return queryFarmerId;
+        }
+        if (isFarmer(currentUser)) {
+            return currentUser.getUserId();
         }
         return queryFarmerId;
     }
 
+    private boolean shouldLimitToOnShelf(Integer requestedSaleStatus) {
+        SessionUser currentUser = SessionUserHolder.get();
+        if (currentUser == null) {
+            return true;
+        }
+        if (isConsumer(currentUser)) {
+            return true;
+        }
+        if (isFarmer(currentUser)) {
+            return false;
+        }
+        return requestedSaleStatus == null;
+    }
+
     private Long resolveWritableFarmerId(Long farmerId) {
-        if (CurrentUserUtil.isFarmer()) {
-            if (farmerId != null && !CurrentUserUtil.currentUserId().equals(farmerId)) {
+        SessionUser currentUser = SessionUserHolder.get();
+        if (isFarmer(currentUser)) {
+            if (farmerId != null && !currentUser.getUserId().equals(farmerId)) {
                 throw new ForbiddenException("农户只能新增或编辑自己的商品，不能指定其他农户");
             }
-            return CurrentUserUtil.currentUserId();
+            return currentUser.getUserId();
         }
         return farmerId;
     }
@@ -248,12 +406,10 @@ public class ProductServiceImpl implements ProductService {
 
         Map<Long, String> categoryNameMap = categoryIds.isEmpty()
                 ? Collections.emptyMap()
-                : productCategoryMapper.selectBatchIds(categoryIds).stream()
-                .collect(Collectors.toMap(ProductCategory::getId, ProductCategory::getCategoryName));
+            : loadCategoryNameMap(categoryIds);
         Map<Long, String> farmerNameMap = farmerIds.isEmpty()
                 ? Collections.emptyMap()
-                : farmerMapper.selectBatchIds(farmerIds).stream()
-                .collect(Collectors.toMap(Farmer::getId, Farmer::getFarmerName));
+            : loadFarmerNameMap(farmerIds);
 
         return products.stream().map(product -> toListVO(product, categoryNameMap, farmerNameMap)).collect(Collectors.toList());
     }
@@ -268,7 +424,19 @@ public class ProductServiceImpl implements ProductService {
         vo.setStock(product.getStock());
         vo.setUnitName(product.getUnitName());
         vo.setOriginPlace(product.getOriginPlace());
-        vo.setCoverImage(product.getCoverImage());
+        vo.setCoverImage(UrlUtils.toFullUrl(product.getCoverImage()));
+        
+        List<ProductImage> productImages = productImageMapper.selectList(
+            new LambdaQueryWrapper<ProductImage>()
+                .eq(ProductImage::getProductId, product.getId())
+                .orderByAsc(ProductImage::getSortOrder)
+        );
+        if (productImages != null && !productImages.isEmpty()) {
+            vo.setImages(productImages.stream()
+                .map(img -> UrlUtils.toFullUrl(img.getImageUrl()))
+                .collect(Collectors.toList()));
+        }
+        
         vo.setDescription(product.getDescription());
         vo.setSaleStatus(product.getSaleStatus());
         vo.setSalesCount(product.getSalesCount());
@@ -293,5 +461,56 @@ public class ProductServiceImpl implements ProductService {
         product.setCoverImage(dto.getCoverImage());
         product.setDescription(dto.getDescription());
         product.setSaleStatus(dto.getSaleStatus() == null ? 1 : dto.getSaleStatus());
+    }
+
+    private boolean isAdmin(SessionUser user) {
+        return user != null && "ADMIN".equalsIgnoreCase(user.getRoleCode());
+    }
+
+    private boolean isFarmer(SessionUser user) {
+        return user != null && "FARMER".equalsIgnoreCase(user.getRoleCode());
+    }
+
+    private boolean isConsumer(SessionUser user) {
+        return user != null && "CONSUMER".equalsIgnoreCase(user.getRoleCode());
+    }
+
+    private boolean hasOrdersForProduct(Long productId) {
+        if (productId == null) {
+            return false;
+        }
+        Long count = orderItemMapper.selectCount(new LambdaQueryWrapper<OrderItem>()
+                .eq(OrderItem::getProductId, productId));
+        return count != null && count > 0;
+    }
+
+    private List<Long> findCategoryIdsByKeyword(String keyword) {
+        return productCategoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
+                        .like(ProductCategory::getCategoryName, keyword))
+                .stream()
+                .map(ProductCategory::getId)
+                .toList();
+    }
+
+    private List<Long> findFarmerIdsByKeyword(String keyword) {
+        return farmerMapper.selectList(new LambdaQueryWrapper<Farmer>()
+                        .like(Farmer::getFarmerName, keyword)
+                        .or()
+                        .like(Farmer::getLoginName, keyword)
+                        .or()
+                        .like(Farmer::getContactPhone, keyword))
+                .stream()
+                .map(Farmer::getId)
+                .toList();
+    }
+
+    private Map<Long, String> loadCategoryNameMap(Set<Long> categoryIds) {
+        return productCategoryMapper.selectBatchIds(categoryIds).stream()
+                .collect(Collectors.toMap(ProductCategory::getId, ProductCategory::getCategoryName));
+    }
+
+    private Map<Long, String> loadFarmerNameMap(Set<Long> farmerIds) {
+        return farmerMapper.selectBatchIds(farmerIds).stream()
+                .collect(Collectors.toMap(Farmer::getId, Farmer::getFarmerName));
     }
 }

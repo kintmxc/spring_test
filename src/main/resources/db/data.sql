@@ -6,6 +6,10 @@ VALUES
 (1, 'farmer01', '123456', '张家农场', '13900000001', 'XX县XX村', 1, 1),
 (2, 'farmer02', '123456', '李家果园', '13900000002', 'XX县XX镇', 1, 1);
 
+INSERT IGNORE INTO consumer_user (id, login_name, password, nick_name, phone, status)
+VALUES
+(1, 'consumer01', '123456', '普通用户01', '13700000001', 1);
+
 INSERT IGNORE INTO product_category (id, category_name, sort_no, status)
 VALUES
 (1, '蔬菜', 1, 1),
@@ -37,3 +41,11 @@ VALUES
 INSERT IGNORE INTO order_logistics (id, order_id, company_name, tracking_no, logistics_status, ship_remark)
 VALUES
 (1, 2, '顺丰速运', 'SF202603110001', 1, '已从产地发出');
+
+INSERT IGNORE INTO user_address (id, user_id, name, phone, province, city, district, detail, is_default)
+VALUES
+(1, 1, '管理员', '13800000000', '四川省', '成都市', '武侯区', '天府大道100号', 1);
+
+INSERT IGNORE INTO evaluation (id, order_id, product_id, user_id, nick_name, avatar, score, content, images_json)
+VALUES
+(1, 1, 1, 1, '管**员', '', 5, '商品新鲜，口感不错', '[]');

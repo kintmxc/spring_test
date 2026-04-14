@@ -18,5 +18,7 @@ public class OrderItem {
     private BigDecimal productPrice;
     private Integer quantity;
     private BigDecimal subtotalAmount;
+    private Integer isDeleted;
     private LocalDateTime createTime;
+    private LocalDateTime updateTime;
 }

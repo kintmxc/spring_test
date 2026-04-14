@@ -237,4 +237,38 @@ public class FarmerServiceImpl implements FarmerService {
         vo.setOrderCount(orderCount);
         return vo;
     }
+
+    @Override
+    public void delete(Long id) {
+        Farmer farmer = farmerMapper.selectById(id);
+        if (farmer == null) {
+            throw new BusinessException("农户不存在");
+        }
+        farmerMapper.deleteById(id);
+    }
+
+    // --- 内部解耦方法 ---
+    @Override
+    public Farmer getById(Long id) {
+        return farmerMapper.selectById(id);
+    }
+
+    @Override
+    public Map<Long, String> getFarmerNamesByIds(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Farmer> farmers = farmerMapper.selectBatchIds(ids);
+        return farmers.stream().collect(Collectors.toMap(Farmer::getId, Farmer::getFarmerName));
+    }
+
+    @Override
+    public List<Long> getFarmerIdsByKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        return farmerMapper.selectList(new LambdaQueryWrapper<Farmer>()
+                .like(Farmer::getFarmerName, keyword))
+                .stream().map(Farmer::getId).collect(Collectors.toList());
+    }
 }

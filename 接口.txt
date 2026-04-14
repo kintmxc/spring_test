@@ -1,0 +1,666 @@
+接口汇总表
+模块	接口	方法	说明
+认证	/api/auth/sms	POST	发送验证码
+认证	/api/auth/register	POST	注册
+认证	/api/auth/login	POST	登录
+认证	/api/auth/me	GET	获取当前用户
+认证	/api/auth/logout	POST	退出登录
+商品	/api/products	GET	商品列表
+商品	/api/products/{id}	GET	商品详情
+商品	/api/products	POST	发布商品
+商品	/api/products/{id}	PUT	更新商品
+商品	/api/products/{id}/sale-status	PUT	上下架
+商品	/api/products/{id}/stock	PUT	修改库存
+商品	/api/products/{id}	DELETE	删除商品
+分类	/api/categories	GET	分类列表
+订单	/api/orders	POST	创建订单
+订单	/api/orders	GET	订单列表
+订单	/api/orders/{id}	GET	订单详情
+订单	/api/orders/{id}/status	PUT	更新状态
+订单	/api/orders/{id}/ship	PUT	发货
+订单	/api/orders/{id}/cancel	POST	取消订单
+地址	/api/addresses	GET	地址列表
+地址	/api/addresses	POST	新增地址
+地址	/api/addresses/{id}	PUT	更新地址
+地址	/api/addresses/{id}	DELETE	删除地址
+评价	/api/evaluations	POST	提交评价
+评价	/api/evaluations	GET	评价列表
+统计	/api/dashboard/overview	GET	数据概览
+统计	/api/dashboard/sales-stats	GET	销售统计
+统计	/api/dashboard/latest-orders	GET	近期订单
+文件	/api/files/image	POST	上传图片
+AI	/api/ai/recommendation	GET	AI推荐
+AI	/api/ai/advice	GET	食用建议
+
+
+一、基础信息
+项目	说明
+基础URL	http://11xq9976173yt.vicp.fun/api
+请求方式	POST / GET / PUT / DELETE
+数据格式	JSON
+认证方式	Header: Authorization: Bearer {token}
+二、认证模块
+1. 发送验证码
+text
+POST /api/auth/sms
+请求参数：
+
+json
+{
+  "phone": "13800000000"
+}
+响应：
+
+json
+{
+  "code": 0,
+  "message": "验证码已发送"
+}
+2. 注册
+text
+POST /api/auth/register
+请求参数：
+
+json
+{
+  "phone": "13800000000",
+  "code": "123456",
+  "nickName": "张三",
+  "role": "consumer"   // consumer 或 farmer
+}
+响应：
+
+json
+{
+  "code": 0,
+  "message": "注册成功"
+}
+3. 登录
+text
+POST /api/auth/login
+请求参数：
+
+json
+{
+  "phone": "13800000000",
+  "code": "123456"
+}
+响应：
+
+json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "userInfo": {
+      "id": 1,
+      "phone": "13800000000",
+      "nickName": "张三",
+      "role": "consumer",
+      "avatar": "http://xxx.com/avatar.jpg",
+      "address": "四川省成都市"
+    }
+  }
+}
+4. 获取当前用户信息
+text
+GET /api/auth/me
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "id": 1,
+    "phone": "13800000000",
+    "nickName": "张三",
+    "role": "consumer",
+    "avatar": "http://xxx.com/avatar.jpg",
+    "address": "四川省成都市"
+  }
+}
+5. 退出登录
+text
+POST /api/auth/logout
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "message": "退出成功"
+}
+三、商品模块
+1. 获取商品列表（首页/分类/搜索）
+text
+GET /api/products
+请求参数：
+
+参数	类型	说明
+categoryId	int	分类ID（可选）
+keyword	string	搜索关键词（可选）
+page	int	页码，默认1
+pageSize	int	每页数量，默认10
+sort	string	排序：sales_desc(销量)/price_asc(价格升序)/price_desc(价格降序)
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "name": "本地红富士苹果",
+        "price": 25.00,
+        "unit": "斤",
+        "image": "http://xxx.com/images/apple.jpg",
+        "stock": 50,
+        "farmerName": "老王果园",
+        "farmerId": 1,
+        "categoryId": 2,
+        "categoryName": "水果",
+        "salesCount": 128
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "pageSize": 10,
+    "hasMore": true
+  }
+}
+2. 获取商品详情
+text
+GET /api/products/{id}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "id": 1,
+    "name": "本地红富士苹果",
+    "price": 25.00,
+    "unit": "斤",
+    "image": "http://xxx.com/images/apple.jpg",
+    "images": ["url1", "url2"],
+    "stock": 50,
+    "farmerName": "老王果园",
+    "farmerId": 1,
+    "farmerDesc": "老王果园有20年种植经验...",
+    "origin": "陕西洛川",
+    "description": "新鲜采摘，脆甜多汁",
+    "productionTime": "2025-01-15",
+    "inspection": "无农残检测合格",
+    "categoryId": 2,
+    "categoryName": "水果"
+  }
+}
+3. 发布商品（农户）
+text
+POST /api/products
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "name": "本地红富士苹果",
+  "price": 25.00,
+  "unit": "斤",
+  "images": ["url1", "url2"],
+  "stock": 50,
+  "origin": "陕西洛川",
+  "description": "新鲜采摘，脆甜多汁",
+  "productionTime": "2025-01-15",
+  "inspection": "无农残检测合格",
+  "categoryId": 2
+}
+响应：
+
+json
+{
+  "code": 0,
+  "data": { "id": 1 },
+  "message": "发布成功"
+}
+4. 更新商品（农户）
+text
+PUT /api/products/{id}
+请求头： Authorization: Bearer {token}
+请求参数： 同发布商品
+
+5. 修改商品上下架状态
+text
+PUT /api/products/{id}/sale-status
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "status": 1   // 1-上架, 0-下架
+}
+6. 修改商品库存
+text
+PUT /api/products/{id}/stock
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "stock": 50
+}
+7. 删除商品（农户）
+text
+DELETE /api/products/{id}
+请求头： Authorization: Bearer {token}
+
+四、分类模块
+1. 获取所有分类
+text
+GET /api/categories
+响应：
+
+json
+{
+  "code": 0,
+  "data": [
+    { "id": 1, "name": "蔬菜" },
+    { "id": 2, "name": "水果" },
+    { "id": 3, "name": "粮油" },
+    { "id": 4, "name": "禽蛋" },
+    { "id": 5, "name": "干货" }
+  ]
+}
+2. 获取分类选项（用于下拉框）
+text
+GET /api/categories/options
+响应： 同上
+
+五、订单模块
+1. 创建订单
+text
+POST /api/orders
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "productId": 1,
+  "quantity": 2,
+  "addressId": 1,
+  "remark": "请尽快发货"
+}
+响应：
+
+json
+{
+  "code": 0,
+  "data": { "orderId": 1001 },
+  "message": "订单创建成功"
+}
+2. 获取订单列表
+text
+GET /api/orders
+请求头： Authorization: Bearer {token}
+请求参数：
+
+参数	类型	说明
+status	int	0-待付款,1-待发货,2-待收货,3-已完成
+page	int	页码
+pageSize	int	每页数量
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "list": [
+      {
+        "id": 1001,
+        "orderNo": "ORD202503310001",
+        "productId": 1,
+        "productName": "本地红富士苹果",
+        "productImage": "http://xxx.com/apple.jpg",
+        "productPrice": 25.00,
+        "productUnit": "斤",
+        "quantity": 2,
+        "totalAmount": 50.00,
+        "freight": 0,
+        "status": 0,
+        "createTime": "2025-03-31 10:30:00",
+        "address": {
+          "name": "张三",
+          "phone": "13800000000",
+          "province": "四川省",
+          "city": "成都市",
+          "district": "武侯区",
+          "detail": "天府大道100号"
+        }
+      }
+    ],
+    "total": 10,
+    "hasMore": true
+  }
+}
+3. 获取订单详情
+text
+GET /api/orders/{id}
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "id": 1001,
+    "orderNo": "ORD202503310001",
+    "productId": 1,
+    "productName": "本地红富士苹果",
+    "productImage": "http://xxx.com/apple.jpg",
+    "productPrice": 25.00,
+    "productUnit": "斤",
+    "quantity": 2,
+    "totalAmount": 50.00,
+    "freight": 0,
+    "status": 0,
+    "createTime": "2025-03-31 10:30:00",
+    "payTime": null,
+    "shipTime": null,
+    "completeTime": null,
+    "logistics": null,
+    "address": {
+      "name": "张三",
+      "phone": "13800000000",
+      "province": "四川省",
+      "city": "成都市",
+      "district": "武侯区",
+      "detail": "天府大道100号"
+    },
+    "remark": "请尽快发货"
+  }
+}
+4. 更新订单状态
+text
+PUT /api/orders/{id}/status
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "status": 1   // 1-待发货, 2-待收货, 3-已完成
+}
+5. 发货（农户）
+text
+PUT /api/orders/{id}/ship
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "logisticsCompany": "顺丰速运",
+  "trackingNo": "SF123456789"
+}
+6. 取消订单
+text
+POST /api/orders/{id}/cancel
+请求头： Authorization: Bearer {token}
+
+六、地址模块
+1. 获取地址列表
+text
+GET /api/addresses
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1,
+      "name": "张三",
+      "phone": "13800000001",
+      "province": "四川省",
+      "city": "成都市",
+      "district": "武侯区",
+      "detail": "天府大道100号",
+      "isDefault": true
+    }
+  ]
+}
+2. 新增地址
+text
+POST /api/addresses
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "name": "张三",
+  "phone": "13800000001",
+  "province": "四川省",
+  "city": "成都市",
+  "district": "武侯区",
+  "detail": "天府大道100号",
+  "isDefault": false
+}
+3. 更新地址
+text
+PUT /api/addresses/{id}
+请求头： Authorization: Bearer {token}
+请求参数： 同新增地址
+
+4. 删除地址
+text
+DELETE /api/addresses/{id}
+请求头： Authorization: Bearer {token}
+
+七、评价模块
+1. 提交评价
+text
+POST /api/evaluations
+请求头： Authorization: Bearer {token}
+请求参数：
+
+json
+{
+  "orderId": 1001,
+  "productId": 1,
+  "score": 5,
+  "content": "苹果很甜，很新鲜！",
+  "images": ["url1", "url2"]
+}
+2. 获取商品评价列表
+text
+GET /api/evaluations?productId=1
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "nickName": "用户138****1234",
+        "avatar": "http://xxx.com/avatar.jpg",
+        "content": "苹果很甜，很新鲜！",
+        "score": 5,
+        "images": [],
+        "createTime": "2025-03-30 14:30:00"
+      }
+    ],
+    "total": 10
+  }
+}
+八、农户模块
+1. 获取农户信息
+text
+GET /api/farmers/{id}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "id": 1,
+    "name": "老王果园",
+    "phone": "13800000000",
+    "address": "四川省成都市",
+    "avatar": "http://xxx.com/avatar.jpg",
+    "description": "20年种植经验，绿色种植"
+  }
+}
+2. 获取农户商品列表
+text
+GET /api/farmers/{id}/products
+请求参数： 同商品列表
+
+九、统计模块（农户端）
+1. 获取数据概览
+text
+GET /api/dashboard/overview
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "productCount": 12,
+    "pendingOrderCount": 3,
+    "totalSales": 1280,
+    "totalRevenue": 25600.00
+  }
+}
+2. 获取销售统计
+text
+GET /api/dashboard/sales-stats
+请求参数：
+
+参数	说明
+period	week/month/year
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "totalSales": 12560.00,
+    "totalOrders": 45,
+    "totalQuantity": 320,
+    "salesTrend": 12.5,
+    "orderTrend": 8.3,
+    "dailySales": [
+      { "day": "周一", "value": 128 },
+      { "day": "周二", "value": 156 }
+    ],
+    "productRank": [
+      {
+        "id": 1,
+        "name": "本地红富士苹果",
+        "image": "http://xxx.com/apple.jpg",
+        "salesCount": 128,
+        "revenue": 3200
+      }
+    ]
+  }
+}
+3. 获取近期订单（农户端首页）
+text
+GET /api/dashboard/latest-orders?limit=5
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": [
+    {
+      "id": 1001,
+      "productName": "本地红富士苹果",
+      "productImage": "http://xxx.com/apple.jpg",
+      "quantity": 2,
+      "status": 1,
+      "buyerName": "张**",
+      "createTime": "2025-03-31 10:30:00"
+    }
+  ]
+}
+十、文件上传
+1. 上传图片
+text
+POST /api/files/image
+请求头： Authorization: Bearer {token}
+请求方式： multipart/form-data
+参数： file (图片文件)
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "url": "/uploads/images/20250331/xxx.jpg"
+  }
+}
+图片访问前缀： /uploads/，完整URL：http://11xq9976173yt.vicp.fun/uploads/images/xxx.jpg
+
+十一、AI 大模型模块
+1. 获取首页AI推荐
+text
+GET /api/ai/recommendation
+请求头： Authorization: Bearer {token}
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "reason": "根据您的购买记录，我们为您推荐以下新鲜农产品",
+    "products": [
+      {
+        "id": 1,
+        "name": "本地红富士苹果",
+        "price": 25,
+        "image": "http://xxx.com/apple.jpg"
+      }
+    ]
+  }
+}
+2. 获取商品食用建议
+text
+GET /api/ai/advice?productName=苹果
+响应：
+
+json
+{
+  "code": 0,
+  "data": {
+    "eatAdvice": "苹果建议洗净后直接食用，口感脆甜多汁。",
+    "storeAdvice": "苹果适合冷藏保存，温度0-4℃，可存放7-10天。"
+  }
+}
+响应统一格式
+成功响应
+json
+{
+  "code": 0,
+  "message": "success",
+  "data": {}
+}
+失败响应
+json
+{
+  "code": 400,
+  "message": "错误信息"
+}
+错误码说明
+code	说明
+0	成功
+400	请求参数错误
+401	未登录/token失效
+403	无权限
+404	资源不存在
+500	服务器错误

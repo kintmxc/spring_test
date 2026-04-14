@@ -2,6 +2,7 @@ package com.example.spring_test.vo;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Data;
 
 @Data
@@ -13,6 +14,7 @@ public class OrderListVO {
     private BigDecimal totalAmount;
     private BigDecimal payAmount;
     private Integer orderStatus;
+    private String orderStatusText;
     private Integer payStatus;
     private String receiverName;
     private String receiverPhone;
@@ -29,4 +31,5 @@ public class OrderListVO {
     private String itemSummary;
     private String logisticsCompany;
     private String trackingNo;
+    private List<OrderItemVO> items;
 }

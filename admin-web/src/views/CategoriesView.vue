@@ -65,18 +65,32 @@ const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
-const form = reactive({ categoryName: '', sortNo: 0, status: 1 })
+const form = reactive({ categoryName: '', sortNo: null, status: 1 })
 const rules = {
   categoryName: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
-  sortNo: [{ required: true, message: '请输入排序号', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
 async function loadCategories() {
   try {
     listLoading.value = true
-    categories.value = await categoryListApi()
+    console.log('开始加载分类数据...')
+    const response = await categoryListApi()
+    console.log('后端返回数据:', response)
+    // 确保数据格式正确
+    if (response && Array.isArray(response)) {
+      console.log('直接使用响应数组')
+      categories.value = response
+    } else if (response && response.data && Array.isArray(response.data)) {
+      console.log('使用响应中的data数组')
+      categories.value = response.data
+    } else {
+      console.log('响应格式不正确，使用空数组')
+      categories.value = []
+    }
+    console.log('最终分类数据:', categories.value)
   } catch (error) {
+    console.error('加载分类失败:', error)
     ElMessage.error(error.message || '加载分类失败')
   } finally {
     listLoading.value = false
@@ -94,6 +108,10 @@ function openDialog(row) {
 
 async function submit() {
   try {
+    // 排序号为0时传递null，由后端自动生成
+    if (form.sortNo === 0) {
+      form.sortNo = null
+    }
     await formRef.value.validate()
     submitLoading.value = true
     if (editingId.value) {

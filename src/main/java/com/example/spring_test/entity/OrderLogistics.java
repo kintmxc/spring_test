@@ -18,4 +18,5 @@ public class OrderLogistics {
     private String shipRemark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Integer isDeleted;
 }

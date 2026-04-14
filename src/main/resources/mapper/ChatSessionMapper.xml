@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.spring_test.mapper.ChatSessionMapper">
+    <insert id="insertSession">
+        INSERT INTO chat_session (farmer_id, consumer_id, unread_count, created_time, updated_time)
+        VALUES (#{farmerId}, #{consumerId}, #{unreadCount}, #{createdTime}, #{updatedTime})
+    </insert>
+    
+    <select id="getSessionsWithNamesByConsumerId" resultType="com.example.spring_test.entity.ChatSession">
+        SELECT 
+            cs.*,
+            f.farmer_name as farmerName
+        FROM chat_session cs
+        LEFT JOIN farmer f ON cs.farmer_id = f.id
+        WHERE cs.consumer_id = #{consumerId}
+        ORDER BY cs.last_message_time DESC
+    </select>
+    
+    <select id="getSessionsWithNamesByFarmerId" resultType="com.example.spring_test.entity.ChatSession">
+        SELECT 
+            cs.*,
+            cu.login_name as consumerName
+        FROM chat_session cs
+        LEFT JOIN consumer_user cu ON cs.consumer_id = cu.id
+        WHERE cs.farmer_id = #{farmerId}
+        ORDER BY cs.last_message_time DESC
+    </select>
+</mapper>

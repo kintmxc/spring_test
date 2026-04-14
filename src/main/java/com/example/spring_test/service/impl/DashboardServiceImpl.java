@@ -13,7 +13,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -57,6 +60,31 @@ public class DashboardServiceImpl implements DashboardService {
 
         return new DashboardOverviewVO(todayOrderCount, pendingOrderCount, onSaleProductCount, monthSalesAmount);
     }
+
+        @Override
+        public Map<String, Object> salesStats(String period) {
+                Long farmerId = CurrentUserUtil.isFarmer() ? CurrentUserUtil.currentUserId() : null;
+                List<Orders> paidOrders = ordersMapper.selectList(new LambdaQueryWrapper<Orders>()
+                                .eq(farmerId != null, Orders::getFarmerId, farmerId)
+                                .in(Orders::getOrderStatus, 1, 2, 3));
+                BigDecimal totalSales = paidOrders.stream()
+                                .map(Orders::getPayAmount)
+                                .filter(amount -> amount != null)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                int totalOrders = paidOrders.size();
+                int totalQuantity = totalOrders;
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("period", period == null ? "month" : period);
+                result.put("totalSales", totalSales);
+                result.put("totalOrders", totalOrders);
+                result.put("totalQuantity", totalQuantity);
+                result.put("salesTrend", 0);
+                result.put("orderTrend", 0);
+                result.put("dailySales", new ArrayList<>());
+                result.put("productRank", new ArrayList<>());
+                return result;
+        }
 
     @Override
     public List<LatestOrderVO> latestOrders(int limit) {

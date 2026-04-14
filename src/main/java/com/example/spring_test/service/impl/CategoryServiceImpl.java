@@ -5,9 +5,11 @@ import com.example.spring_test.dto.CategorySaveDTO;
 import com.example.spring_test.entity.Product;
 import com.example.spring_test.entity.ProductCategory;
 import com.example.spring_test.exception.BusinessException;
+import com.example.spring_test.exception.ForbiddenException;
 import com.example.spring_test.mapper.ProductCategoryMapper;
 import com.example.spring_test.mapper.ProductMapper;
-import com.example.spring_test.security.CurrentUserUtil;
+import com.example.spring_test.security.SessionUser;
+import com.example.spring_test.security.SessionUserHolder;
 import com.example.spring_test.service.CategoryService;
 import com.example.spring_test.vo.CategoryVO;
 import com.example.spring_test.vo.OptionVO;
@@ -16,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,8 +33,8 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Cacheable(value = "categories", key = "'all'")
     public List<CategoryVO> list() {
-        CurrentUserUtil.requireAdmin("仅管理员可查看分类管理列表");
         List<ProductCategory> categories = productCategoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
                 .orderByAsc(ProductCategory::getSortNo)
                 .orderByAsc(ProductCategory::getId));
@@ -38,6 +42,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @Cacheable(value = "categoryOptions", key = "'all'")
     public List<OptionVO> options() {
         return productCategoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
                         .eq(ProductCategory::getStatus, 1)
@@ -49,20 +54,39 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = {"categories", "categoryOptions"}, allEntries = true)
     public CategoryVO save(CategorySaveDTO categorySaveDTO) {
-        CurrentUserUtil.requireAdmin("仅管理员可新增分类");
+        requireAdmin("仅管理员可新增分类");
         ensureUnique(categorySaveDTO.getCategoryName(), null);
+        
+        // 自动生成排序值：最大排序值 + 1
+        Integer sortNo = categorySaveDTO.getSortNo();
+        if (sortNo == null || sortNo < 0) {
+            // 查询当前最大排序值
+            ProductCategory maxSortCategory = productCategoryMapper.selectOne(
+                new LambdaQueryWrapper<ProductCategory>()
+                    .orderByDesc(ProductCategory::getSortNo)
+                    .last("limit 1")
+            );
+            if (maxSortCategory != null) {
+                sortNo = maxSortCategory.getSortNo() + 1;
+            } else {
+                sortNo = 1; // 第一个分类从1开始
+            }
+        }
+        
         ProductCategory category = new ProductCategory();
         category.setCategoryName(categorySaveDTO.getCategoryName());
-        category.setSortNo(categorySaveDTO.getSortNo() == null ? 0 : categorySaveDTO.getSortNo());
+        category.setSortNo(sortNo);
         category.setStatus(categorySaveDTO.getStatus() == null ? 1 : categorySaveDTO.getStatus());
         productCategoryMapper.insert(category);
         return toCategoryVO(category, 0);
     }
 
     @Override
+    @CacheEvict(value = {"categories", "categoryOptions"}, allEntries = true)
     public CategoryVO update(Long id, CategorySaveDTO categorySaveDTO) {
-        CurrentUserUtil.requireAdmin("仅管理员可编辑分类");
+        requireAdmin("仅管理员可编辑分类");
         ProductCategory category = getById(id);
         ensureUnique(categorySaveDTO.getCategoryName(), id);
         category.setCategoryName(categorySaveDTO.getCategoryName());
@@ -75,8 +99,9 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = {"categories", "categoryOptions"}, allEntries = true)
     public void delete(Long id) {
-        CurrentUserUtil.requireAdmin("仅管理员可删除分类");
+        requireAdmin("仅管理员可删除分类");
         ProductCategory category = getById(id);
         Long count = productMapper.selectCount(new LambdaQueryWrapper<Product>()
                 .eq(Product::getCategoryId, category.getId()));
@@ -86,12 +111,28 @@ public class CategoryServiceImpl implements CategoryService {
         productCategoryMapper.deleteById(id);
     }
 
-    private ProductCategory getById(Long id) {
-        ProductCategory category = productCategoryMapper.selectById(id);
-        if (category == null) {
-            throw new BusinessException("分类不存在");
+    @Override
+    public ProductCategory getById(Long id) {
+        return productCategoryMapper.selectById(id);
+    }
+
+    @Override
+    public Map<Long, String> getCategoryNamesByIds(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyMap();
         }
-        return category;
+        List<ProductCategory> categories = productCategoryMapper.selectBatchIds(ids);
+        return categories.stream().collect(Collectors.toMap(ProductCategory::getId, ProductCategory::getCategoryName));
+    }
+
+    @Override
+    public List<Long> getCategoryIdsByKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        return productCategoryMapper.selectList(new LambdaQueryWrapper<ProductCategory>()
+                .like(ProductCategory::getCategoryName, keyword))
+                .stream().map(ProductCategory::getId).collect(Collectors.toList());
     }
 
     private void ensureUnique(String categoryName, Long excludeId) {
@@ -132,5 +173,12 @@ public class CategoryServiceImpl implements CategoryService {
         vo.setCreateTime(category.getCreateTime());
         vo.setUpdateTime(category.getUpdateTime());
         return vo;
+    }
+
+    private void requireAdmin(String message) {
+        SessionUser currentUser = SessionUserHolder.get();
+        if (currentUser == null || !"ADMIN".equalsIgnoreCase(currentUser.getRoleCode())) {
+            throw new ForbiddenException(message);
+        }
     }
 }

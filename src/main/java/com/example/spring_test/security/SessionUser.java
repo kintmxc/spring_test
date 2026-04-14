@@ -1,11 +1,16 @@
 package com.example.spring_test.security;
 
+import java.io.Serial;
+import java.io.Serializable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class SessionUser {
+public class SessionUser implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private Long userId;
     private String username;
     private String roleCode;

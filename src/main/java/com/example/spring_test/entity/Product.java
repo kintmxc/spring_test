@@ -23,6 +23,7 @@ public class Product {
     private String description;
     private Integer saleStatus;
     private Integer salesCount;
+    private Integer isDeleted;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

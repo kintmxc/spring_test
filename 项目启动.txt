@@ -1,0 +1,11 @@
+HTTPS 单套启动
+1) 启动后端
+./mvnw spring-boot:run
+
+2) 启动管理端前端
+cd admin-web; npm install; npm run dev
+
+说明
+- 前端已通过 admin-web/.env.development 固定 HTTPS 接口域名
+- 后端 Session Cookie 已固定为 Secure + SameSite=None
+- 联调请统一使用 https://47.120.18.68/

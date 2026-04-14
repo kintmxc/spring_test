@@ -26,4 +26,11 @@ public interface FarmerService {
     List<Farmer> listApproved();
 
     List<OptionVO> options();
+
+    void delete(Long id);
+
+    // --- For internal decoupling ---
+    com.example.spring_test.entity.Farmer getById(Long id);
+    java.util.Map<Long, String> getFarmerNamesByIds(java.util.Set<Long> ids);
+    java.util.List<Long> getFarmerIdsByKeyword(String keyword);
 }

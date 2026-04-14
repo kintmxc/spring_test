@@ -16,6 +16,7 @@ public class Farmer {
     private String farmerName;
     private String contactPhone;
     private String originPlace;
+    private String description;
     private String idCardNo;
     private String licenseNo;
     private Integer authStatus;
@@ -23,4 +24,5 @@ public class Farmer {
     private String remark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Integer isDeleted;
 }

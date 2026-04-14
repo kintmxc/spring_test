@@ -24,6 +24,10 @@ public final class CurrentUserUtil {
         return RoleEnum.FARMER.name().equalsIgnoreCase(getRequiredUser().getRoleCode());
     }
 
+    public static boolean isConsumer() {
+        return RoleEnum.CONSUMER.name().equalsIgnoreCase(getRequiredUser().getRoleCode());
+    }
+
     public static void requireAdmin(String message) {
         if (!isAdmin()) {
             throw new ForbiddenException(message);
@@ -32,6 +36,20 @@ public final class CurrentUserUtil {
 
     public static Long currentUserId() {
         return getRequiredUser().getUserId();
+    }
+
+    public static String getCurrentUserType() {
+        String roleCode = getRequiredUser().getRoleCode();
+        if (RoleEnum.ADMIN.name().equalsIgnoreCase(roleCode)) {
+            return "管理员";
+        }
+        if (RoleEnum.FARMER.name().equalsIgnoreCase(roleCode)) {
+            return "农户";
+        }
+        if (RoleEnum.CONSUMER.name().equalsIgnoreCase(roleCode)) {
+            return "消费者";
+        }
+        return "未知";
     }
 
     public static void requireAdminOrOwner(Long ownerId, String message) {
